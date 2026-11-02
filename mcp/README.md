@@ -67,7 +67,7 @@ the server's stderr.
 
 ## Tools
 
-Nine read-only tools, and one that writes:
+Nine read-only tools, one that logs workouts, and the coach tools below:
 
 | Tool | What it answers |
 |---|---|
@@ -81,6 +81,27 @@ Nine read-only tools, and one that writes:
 | `estimate_1rm` | All-time best 1RM for an exercise + the trend, or a PR table across all exercises. |
 | `muscle_balance` | Which muscles I've trained this week/month/all-time, ranked + which I've neglected. |
 | `log_workout` | *Writes.* "I did dumbbell curls, 12 kg, 12/12/10" → a logged session in your history, on every device. Needs pairing: [Logging workouts](#logging-workouts). |
+
+### Coach tools
+
+For a coach that runs on a schedule (an LLM each morning) and plans the athlete's training. They
+need the same pairing as `log_workout` (`OPENGYM_URL` and `OPENGYM_TOKEN`), and write through the
+server the same way.
+
+| Tool | What it does |
+|---|---|
+| `get_coach_inbox` | The coach's notes, the messages it sent, and the athlete's daily check-ins: train as planned, swap, skip the PR, an own workout or no training; soreness; a line for the coach; last night's sleep (from the app or an iPhone Shortcut reading Apple Health). |
+| `save_coach_notes` | The coach's memory between runs, any JSON up to 64 KB. Never shown in the app. |
+| `send_message` | The morning brief: stored, shown on Home with the day's check-in, and pushed. On a PR day it names the regular session too, so the athlete can skip the attempt with one tap. |
+| `upsert_routine` | A planned session with exact numbers: a top set and back-off sets for a main lift, sets × reps for the rest. |
+| `delete_coach_routine` | Removes a coach routine and takes it out of the week. |
+| `set_coach_week` | The sessions to do, in order, on whatever days the athlete trains. |
+| `pin_day` | Puts a session on a date (a PR day after a rest day), or makes the date a rest day. |
+
+The coach only changes routines it made (ids starting with `cc`); the athlete's own routines are
+read-only to it. Coach routines store their numbers as pyramid sets, which the app never
+progresses on its own, so the athlete sees exactly what the coach planned. The inbox lives beside
+the profile on the server (`api/coach-inbox.js`), not in its synced state.
 
 `get_routine` and `preview_session` answer two different questions, and confusing them is the
 easiest way for a coach to give wrong advice. `get_routine` reports what the routine *stores*.

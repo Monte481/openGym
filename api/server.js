@@ -16,6 +16,7 @@ import webpush from 'web-push';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
+import { coachInboxRoutes, createInboxStore } from './coach-inbox.js';
 import { startCadence } from './coach/cadence.js';
 import { startWarmup } from './coach/warmup.js';
 import { dayReminderPush, nudgePush, restTimerPush, testPush } from './push-messages.js';
@@ -185,6 +186,8 @@ function atomicWrite(file, content, mode) { durableWrite(file, content, mode); }
 // synced more writes ago than this merges on its next pull instead of taking the server's copy.
 const WID_KEEP = 50;
 const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
+// The coach inbox (coach-inbox.js): one small file per profile beside its state.
+const INBOX = createInboxStore(DATA);
 // When a profile last fetched its document (GET /api/data). The document's own `_ts` moves only
 // on a push, so a device that only ever read — a second phone, a profile that trains elsewhere
 // and just looks — showed "last sync never" in the admin dashboard (QA 1.3.9). Kept on the user
@@ -1381,6 +1384,7 @@ function removeAccount(u) {
   // The training history and any Coach credential of theirs, both outside db.json.
   try { fs.unlinkSync(stateFile(u.id)); } catch { /* already gone */ }
   try { coachConfig.clearProfileAuth(u.id); } catch { /* nothing stored */ }
+  INBOX.forget(u.id);
   // Their photos and videos — the one place a profile's folder under uploads/ is removed.
   try { MEDIA.removeUser(u.id); } catch (e) { console.error('media: could not remove uploads of', u.id, e.message); }
   saveDb();
@@ -2914,6 +2918,18 @@ const routes = {
   // them: they are closures over db and SECRET, and passing them in keeps that module free of
   // a cycle. Every one of them is inert while the feature is unconfigured.
   ...coachRoutes({ json, readBody, readSession, requireAdmin }),
+
+  /* ---------- coach inbox ---------- */
+  // What an outside coach and the athlete leave each other between runs: notes, the morning
+  // brief (pushed), the daily check-in and last night's sleep. See coach-inbox.js.
+  ...coachInboxRoutes({
+    json, readBody, readSession, sendPush, store: INBOX,
+    pushTargets: uid => db.subs.filter(s => s.userId === uid).length,
+    findUser: uid => db.users.find(u => u.id === uid && !u.disabled) || null,
+    // The profile's own date: the zone its reminder fires by, else the server's.
+    todayFor: uid => userNow(readStateCached(uid)?.reminder?.tz || Intl.DateTimeFormat().resolvedOptions().timeZone)?.date
+      || new Date().toISOString().slice(0, 10),
+  }),
 
   /* ---------- photos & videos ---------- */
   // Absent, not refusing, when MEDIA_UPLOADS=0: a 404 is what a server from before the feature

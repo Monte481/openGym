@@ -167,6 +167,11 @@ tags:
       attached to a logged workout. Stored per profile (one quota for both) and named
       by the SHA-256 of its bytes; the state only carries a `MediaRef`. Every route here is a
       404 when the instance runs with `MEDIA_UPLOADS=0`.
+  - name: inbox
+    description: >-
+      Coach inbox: what an outside coach (an LLM reaching in through the MCP server) and the
+      athlete leave each other between runs. Notes, the pushed morning brief, the daily
+      check-in and last night's sleep. Always on; one small file per profile.
   - name: coach
     description: >-
       AI Coach: plans, reviews and debriefs. Every route here answers 503 unless the
@@ -2723,6 +2728,188 @@ paths:
   # everything above; they are inert (503) while the instance has no Coach enabled
   # and connected.
 
+  /api/coach-inbox:
+    get:
+      tags: [inbox]
+      operationId: coachInboxGet
+      summary: Read the coach inbox
+      description: >-
+        The coach's notes, the last 20 messages and the check-ins of the last `days` days
+        (default 14, at most 120), keyed by date. `today` is the profile's own date (the time
+        zone its reminder uses). `sleepToken` only says whether one is set.
+      parameters:
+        - { name: days, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 120 } }
+      responses:
+        '200':
+          description: The inbox.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  today: { type: string, format: date }
+                  notes: {}
+                  notesAt: { type: [integer, 'null'] }
+                  messages: { type: array, items: { $ref: '#/components/schemas/CoachMessage' } }
+                  checkins: { type: object, additionalProperties: { $ref: '#/components/schemas/CoachCheckin' } }
+                  sleepToken: { type: boolean }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/coach-inbox/notes:
+    put:
+      tags: [inbox]
+      operationId: coachInboxNotes
+      summary: Replace the coach's notes
+      description: >-
+        Any JSON under `notes`, at most 64 KB once serialised. The coach's memory between runs;
+        the app never shows it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [notes], properties: { notes: {} } }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean }, notesAt: { type: integer } } }
+        '400': { description: No `notes` field. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { description: Notes over 64 KB. }
+        '429': { description: Over 120 inbox writes an hour. }
+
+  /api/coach-inbox/messages:
+    post:
+      tags: [inbox]
+      operationId: coachInboxMessage
+      summary: Send a message (the morning brief)
+      description: >-
+        Stores the message (the newest 60 are kept) and pushes its title and first line to
+        the caller's devices with tag `coach-brief`. `pushed` is false when the profile has no
+        push subscription, or the send failed. At most 6 a day.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, body]
+              properties:
+                title: { type: string, maxLength: 120 }
+                body: { type: string, maxLength: 4000 }
+                plan: { $ref: '#/components/schemas/CoachPlan' }
+      responses:
+        '200':
+          description: Stored, and pushed where possible.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  message: { $ref: '#/components/schemas/CoachMessage' }
+                  pushed: { type: boolean }
+        '400': { description: Title or body missing. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: Over 6 messages in 24 hours. }
+
+  /api/coach-inbox/checkin:
+    post:
+      tags: [inbox]
+      operationId: coachInboxCheckin
+      summary: Answer the day's check-in
+      description: >-
+        Sets the fields sent on the check-in for `date` (default today), leaving the others.
+        Only `rest` means no training; the other answers say how the day's plan was changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: { type: string, format: date }
+                answer: { type: string, enum: [planned, swap, skip_pr, own, rest] }
+                soreness: { type: [string, 'null'], enum: [none, some, lots, null] }
+                request: { type: [string, 'null'], maxLength: 280 }
+                sleep: { $ref: '#/components/schemas/CoachSleepInput' }
+      responses:
+        '200':
+          description: The day's check-in as stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  date: { type: string, format: date }
+                  checkin: { $ref: '#/components/schemas/CoachCheckin' }
+        '400': { description: 'A field out of range, a bad date, or nothing to save (`code: invalid`).' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: Over 120 inbox writes an hour. }
+
+  /api/coach-inbox/sleep-token:
+    post:
+      tags: [inbox]
+      operationId: coachInboxSleepToken
+      summary: Make a sleep token
+      description: >-
+        A token for `POST /api/coach-inbox/sleep` and nothing else, shown once. Making a new one
+        retires the old. Meant for an iPhone Shortcut that sends last night's sleep from Apple
+        Health.
+      responses:
+        '200':
+          description: The new token.
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean }, token: { type: string } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      tags: [inbox]
+      operationId: coachInboxSleepTokenDelete
+      summary: Retire the sleep token
+      responses:
+        '200':
+          description: Retired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/coach-inbox/sleep:
+    post:
+      tags: [inbox]
+      operationId: coachInboxSleep
+      summary: Send last night's sleep
+      description: >-
+        Authorised by the sleep token alone (`Authorization: Bearer st.…`), never a session.
+        Files the night under `date` (default the profile's today). At most 20 an hour.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/CoachSleepInput'
+                - type: object
+                  properties: { date: { type: string, format: date } }
+      responses:
+        '200':
+          description: The night as stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  date: { type: string, format: date }
+                  sleep: { $ref: '#/components/schemas/CoachSleep' }
+        '400': { description: 'Nothing usable in the body (`code: invalid`).' }
+        '401': { description: 'No sleep token, or not the current one (`code: token`).' }
+        '429': { description: Over 20 an hour. }
+
   /api/coach/disclosure:
     get:
       tags: [coach]
@@ -3454,6 +3641,59 @@ components:
         retryAfter:
           type: integer
           description: 429 only. The same number of seconds as the Retry-After header.
+
+    CoachMessage:
+      type: object
+      properties:
+        id: { type: string }
+        at: { type: integer, description: ms epoch }
+        date: { type: string, format: date }
+        title: { type: string }
+        body: { type: string }
+        plan: { $ref: '#/components/schemas/CoachPlan' }
+
+    CoachPlan:
+      type: object
+      description: >-
+        The routine a brief planned for today. On a PR day `pr` is true and `altRoutineId` is
+        the regular session the app pins when the athlete skips the attempt.
+      required: [routineId]
+      properties:
+        routineId: { type: string }
+        altRoutineId: { type: string }
+        pr: { type: boolean }
+
+    CoachSleepInput:
+      type: object
+      description: Time asleep in minutes or hours, and/or a quality word, plus optional watch detail.
+      properties:
+        asleepMin: { type: number, minimum: 0, maximum: 1440 }
+        asleepHours: { type: number, minimum: 0, maximum: 24 }
+        quality: { type: string, enum: [good, ok, poor] }
+        deepMin: { type: number }
+        remMin: { type: number }
+        hrv: { type: number, description: ms }
+        restingHr: { type: number }
+
+    CoachSleep:
+      type: object
+      properties:
+        source: { type: string, enum: [app, health, both] }
+        asleepMin: { type: integer }
+        quality: { type: string, enum: [good, ok, poor] }
+        deepMin: { type: integer }
+        remMin: { type: integer }
+        hrv: { type: integer }
+        restingHr: { type: integer }
+
+    CoachCheckin:
+      type: object
+      properties:
+        answer: { type: string, enum: [planned, swap, skip_pr, own, rest] }
+        soreness: { type: [string, 'null'], enum: [none, some, lots, null] }
+        request: { type: [string, 'null'] }
+        sleep: { $ref: '#/components/schemas/CoachSleep' }
+        at: { type: integer }
 
     Ok:
       type: object
