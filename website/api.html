@@ -221,6 +221,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   <a class="side-link" href="#push"><b>Push</b><span>Notifications &amp; rest timer</span></a>
   <a class="side-link" href="#activity"><b>Activity</b><span>Live presence</span></a>
   <a class="side-link" href="#media"><b>Media</b><span>Photos &amp; videos of your exercises &amp; workouts</span></a>
+  <a class="side-link" href="#inbox"><b>Coach inbox</b><span>Notes, brief, check-in, sleep</span></a>
   <a class="side-link" href="#coach"><b>AI Coach</b><span>Plans, reviews, debriefs</span></a>
   <a class="side-link" href="#admin"><b>Admin</b><span>Users, invites, audit log, Coach</span></a>
   <a class="side-link" href="#schemas"><b>Schemas</b><span>The state blob, the error shape &amp; co.</span></a>
@@ -245,7 +246,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   <p class="api-facts">
     <span>OpenAPI 3.1.0</span>
     <span>openGym v1.4.3</span>
-    <span>75 endpoints</span>
+    <span>82 endpoints</span>
     <span>AGPL-3.0-or-later</span>
   </p>
 
@@ -2163,6 +2164,285 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   </div>
 </section>
 
+<section class="api-sec" id="inbox">
+  <h2>Coach inbox</h2>
+  <p class="sub">Coach inbox: what an outside coach (an LLM reaching in through the MCP server) and the athlete leave each other between runs. Notes, the pushed morning brief, the daily check-in and last night's sleep. Always on; one small file per profile.</p>
+  <div class="eps">
+
+<details class="ep" id="op-coachInboxGet">
+  <summary>
+    <span class="m get">GET</span>
+    <span class="ep-path"><code>/api/coach-inbox</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Read the coach inbox</span>
+  </summary>
+  <div class="ep-body">
+<p>The coach's notes, the last 20 messages and the check-ins of the last <code>days</code> days (default 14, at most 120), keyed by date. <code>today</code> is the profile's own date (the time zone its reminder uses). <code>sleepToken</code> only says whether one is set.</p>
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+<p class="ep-h">Query parameters</p><div class="ptab">
+  <div class="prow">
+    <span class="p-name">days</span>
+    <span class="p-type">integer <span class="p-hint">(1&ndash;120)</span></span>
+    <span class="p-desc"></span>
+  </div>
+</div>
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">The inbox.<span class="r-sig">{ today: string <span class="p-hint">(date)</span>, notes: object, notesAt: integer | null, messages: <a href="#schema-CoachMessage">CoachMessage</a>[], checkins: object, sleepToken: boolean }</span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-coachInboxNotes">
+  <summary>
+    <span class="m put">PUT</span>
+    <span class="ep-path"><code>/api/coach-inbox/notes</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Replace the coach's notes</span>
+  </summary>
+  <div class="ep-body">
+<p>Any JSON under <code>notes</code>, at most 64 KB once serialised. The coach's memory between runs; the app never shows it.</p>
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+<p class="ep-h">Request body <span class="p-hint">(JSON)</span></p><div class="ptab">
+  <div class="prow">
+    <span class="p-name">notes<em class="p-req" title="required">required</em></span>
+    <span class="p-type">object</span>
+    <span class="p-desc"></span>
+  </div>
+</div>
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">Saved.<span class="r-sig">{ ok: boolean, notesAt: integer }</span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">400</span>
+    <span class="p-desc">No <code>notes</code> field.</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">413</span>
+    <span class="p-desc">Notes over 64 KB.</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">429</span>
+    <span class="p-desc">Over 120 inbox writes an hour.</span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-coachInboxMessage">
+  <summary>
+    <span class="m post">POST</span>
+    <span class="ep-path"><code>/api/coach-inbox/messages</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Send a message (the morning brief)</span>
+  </summary>
+  <div class="ep-body">
+<p>Stores the message (the newest 60 are kept) and pushes its title and first line to the caller's devices with tag <code>coach-brief</code>. <code>pushed</code> is false when the profile has no push subscription, or the send failed. At most 6 a day.</p>
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+<p class="ep-h">Request body <span class="p-hint">(JSON)</span></p><div class="ptab">
+  <div class="prow">
+    <span class="p-name">title<em class="p-req" title="required">required</em></span>
+    <span class="p-type">string <span class="p-hint">(&le; 120 chars)</span></span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">body<em class="p-req" title="required">required</em></span>
+    <span class="p-type">string <span class="p-hint">(&le; 4000 chars)</span></span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">plan</span>
+    <span class="p-type"><a href="#schema-CoachPlan">CoachPlan</a></span>
+    <span class="p-desc"></span>
+  </div>
+</div>
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">Stored, and pushed where possible.<span class="r-sig">{ ok: boolean, message: <a href="#schema-CoachMessage">CoachMessage</a>, pushed: boolean }</span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">400</span>
+    <span class="p-desc">Title or body missing.</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">429</span>
+    <span class="p-desc">Over 6 messages in 24 hours.</span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-coachInboxCheckin">
+  <summary>
+    <span class="m post">POST</span>
+    <span class="ep-path"><code>/api/coach-inbox/checkin</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Answer the day's check-in</span>
+  </summary>
+  <div class="ep-body">
+<p>Sets the fields sent on the check-in for <code>date</code> (default today), leaving the others. Only <code>rest</code> means no training; the other answers say how the day's plan was changed.</p>
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+<p class="ep-h">Request body <span class="p-hint">(JSON)</span></p><div class="ptab">
+  <div class="prow">
+    <span class="p-name">date</span>
+    <span class="p-type">string <span class="p-hint">(date)</span></span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">answer</span>
+    <span class="p-type">&quot;planned&quot; | &quot;swap&quot; | &quot;skip_pr&quot; | &quot;own&quot; | &quot;rest&quot;</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">soreness</span>
+    <span class="p-type">&quot;none&quot; | &quot;some&quot; | &quot;lots&quot; | null</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">request</span>
+    <span class="p-type">string | null <span class="p-hint">(&le; 280 chars)</span></span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">sleep</span>
+    <span class="p-type"><a href="#schema-CoachSleepInput">CoachSleepInput</a></span>
+    <span class="p-desc"></span>
+  </div>
+</div>
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">The day's check-in as stored.<span class="r-sig">{ ok: boolean, date: string <span class="p-hint">(date)</span>, checkin: <a href="#schema-CoachCheckin">CoachCheckin</a> }</span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">400</span>
+    <span class="p-desc">A field out of range, a bad date, or nothing to save (<code>code: invalid</code>).</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">429</span>
+    <span class="p-desc">Over 120 inbox writes an hour.</span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-coachInboxSleepToken">
+  <summary>
+    <span class="m post">POST</span>
+    <span class="ep-path"><code>/api/coach-inbox/sleep-token</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Make a sleep token</span>
+  </summary>
+  <div class="ep-body">
+<p>A token for <code>POST /api/coach-inbox/sleep</code> and nothing else, shown once. Making a new one retires the old. Meant for an iPhone Shortcut that sends last night's sleep from Apple Health.</p>
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">The new token.<span class="r-sig">{ ok: boolean, token: string }</span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-coachInboxSleepTokenDelete">
+  <summary>
+    <span class="m delete">DELETE</span>
+    <span class="ep-path"><code>/api/coach-inbox/sleep-token</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Retire the sleep token</span>
+  </summary>
+  <div class="ep-body">
+
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">Retired.<span class="r-sig"><a href="#schema-Ok">Ok</a></span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-coachInboxSleep">
+  <summary>
+    <span class="m post">POST</span>
+    <span class="ep-path"><code>/api/coach-inbox/sleep</code><span class="ep-chip public">public</span></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Send last night's sleep</span>
+  </summary>
+  <div class="ep-body">
+<p>Authorised by the sleep token alone (<code>Authorization: Bearer st.…</code>), never a session. Files the night under <code>date</code> (default the profile's today). At most 20 an hour.</p>
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Public: no authentication required.</span></p>
+
+<p class="ep-h">Request body <span class="p-hint">(JSON)</span></p>
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">The night as stored.<span class="r-sig">{ ok: boolean, date: string <span class="p-hint">(date)</span>, sleep: <a href="#schema-CoachSleep">CoachSleep</a> }</span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">400</span>
+    <span class="p-desc">Nothing usable in the body (<code>code: invalid</code>).</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No sleep token, or not the current one (<code>code: token</code>).</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">429</span>
+    <span class="p-desc">Over 20 an hour.</span>
+  </div>
+    </div>
+  </div>
+</details>
+  </div>
+</section>
+
 <section class="api-sec" id="coach">
   <h2>AI Coach</h2>
   <p class="sub">AI Coach: plans, reviews and debriefs. Every route here answers 503 unless the instance has the Coach switched on and a provider connected.</p>
@@ -3487,6 +3767,211 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     <span class="p-name">retryAfter</span>
     <span class="p-type">integer</span>
     <span class="p-desc">429 only. The same number of seconds as the Retry-After header.</span>
+  </div>
+</div>
+  </div>
+</details>
+
+<details class="ep sch" id="schema-CoachMessage">
+  <summary>
+    <span class="sch-name"><code>CoachMessage</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum"></span>
+  </summary>
+  <div class="ep-body">
+
+<div class="ptab">
+  <div class="prow">
+    <span class="p-name">id</span>
+    <span class="p-type">string</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">at</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc">ms epoch</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">date</span>
+    <span class="p-type">string <span class="p-hint">(date)</span></span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">title</span>
+    <span class="p-type">string</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">body</span>
+    <span class="p-type">string</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">plan</span>
+    <span class="p-type"><a href="#schema-CoachPlan">CoachPlan</a></span>
+    <span class="p-desc"></span>
+  </div>
+</div>
+  </div>
+</details>
+
+<details class="ep sch" id="schema-CoachPlan">
+  <summary>
+    <span class="sch-name"><code>CoachPlan</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">The routine a brief planned for today.</span>
+  </summary>
+  <div class="ep-body">
+<p>On a PR day <code>pr</code> is true and <code>altRoutineId</code> is the regular session the app pins when the athlete skips the attempt.</p>
+<div class="ptab">
+  <div class="prow">
+    <span class="p-name">routineId<em class="p-req" title="required">required</em></span>
+    <span class="p-type">string</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">altRoutineId</span>
+    <span class="p-type">string</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">pr</span>
+    <span class="p-type">boolean</span>
+    <span class="p-desc"></span>
+  </div>
+</div>
+  </div>
+</details>
+
+<details class="ep sch" id="schema-CoachSleepInput">
+  <summary>
+    <span class="sch-name"><code>CoachSleepInput</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Time asleep in minutes or hours, and/or a quality word, plus optional watch detail.</span>
+  </summary>
+  <div class="ep-body">
+
+<div class="ptab">
+  <div class="prow">
+    <span class="p-name">asleepMin</span>
+    <span class="p-type">number <span class="p-hint">(0&ndash;1440)</span></span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">asleepHours</span>
+    <span class="p-type">number <span class="p-hint">(0&ndash;24)</span></span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">quality</span>
+    <span class="p-type">&quot;good&quot; | &quot;ok&quot; | &quot;poor&quot;</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">deepMin</span>
+    <span class="p-type">number</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">remMin</span>
+    <span class="p-type">number</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">hrv</span>
+    <span class="p-type">number</span>
+    <span class="p-desc">ms</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">restingHr</span>
+    <span class="p-type">number</span>
+    <span class="p-desc"></span>
+  </div>
+</div>
+  </div>
+</details>
+
+<details class="ep sch" id="schema-CoachSleep">
+  <summary>
+    <span class="sch-name"><code>CoachSleep</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum"></span>
+  </summary>
+  <div class="ep-body">
+
+<div class="ptab">
+  <div class="prow">
+    <span class="p-name">source</span>
+    <span class="p-type">&quot;app&quot; | &quot;health&quot; | &quot;both&quot;</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">asleepMin</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">quality</span>
+    <span class="p-type">&quot;good&quot; | &quot;ok&quot; | &quot;poor&quot;</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">deepMin</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">remMin</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">hrv</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">restingHr</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
+  </div>
+</div>
+  </div>
+</details>
+
+<details class="ep sch" id="schema-CoachCheckin">
+  <summary>
+    <span class="sch-name"><code>CoachCheckin</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum"></span>
+  </summary>
+  <div class="ep-body">
+
+<div class="ptab">
+  <div class="prow">
+    <span class="p-name">answer</span>
+    <span class="p-type">&quot;planned&quot; | &quot;swap&quot; | &quot;skip_pr&quot; | &quot;own&quot; | &quot;rest&quot;</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">soreness</span>
+    <span class="p-type">&quot;none&quot; | &quot;some&quot; | &quot;lots&quot; | null</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">request</span>
+    <span class="p-type">string | null</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">sleep</span>
+    <span class="p-type"><a href="#schema-CoachSleep">CoachSleep</a></span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">at</span>
+    <span class="p-type">integer</span>
+    <span class="p-desc"></span>
   </div>
 </div>
   </div>

@@ -2341,3 +2341,15 @@ button.wl-summary{width:100%;padding:0 0 10px;text-align:start;border-radius:var
 .gym-radius-row>:first-child{flex:1}
 .gym-radius-val{min-width:64px;text-align:end;font-variant-numeric:tabular-nums;color:var(--label-2)}
 .gym-actions{display:flex;flex-direction:column;gap:10px;margin:4px 0 30px}
+
+/* The coach's brief on Home (components/CoachBriefCard.jsx). Its answers wrap instead of
+   scrolling sideways: five of them on a phone must all be seen to be chosen between. They sit
+   on a card, so they take the next surface up to be visible at all. */
+.coach-brief .cb-lbl{font-size:11px;font-weight:500;letter-spacing:.03em;text-transform:uppercase;color:var(--label-3)}
+.coach-brief .cb-ttl{font-size:17px;font-weight:600;letter-spacing:-.02em;line-height:1.25}
+.coach-brief .cb-q{margin-top:14px;font-size:13px;font-weight:600;color:var(--label-2)}
+.coach-brief .chips{flex-wrap:wrap;overflow:visible;touch-action:auto;padding:4px 0 2px}
+.coach-brief .chip{background:var(--surface-2);text-transform:none}
+.coach-brief .chip.on{background:var(--acc)}
+.coach-brief .chip:disabled{opacity:.6}
+.coach-brief .cb-sleep{margin-top:8px}

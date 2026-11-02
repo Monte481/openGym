@@ -139,6 +139,7 @@ const TAGS = {
   media: { title: 'Media', side: 'Photos &amp; videos of your exercises &amp; workouts' },
   // A tag missing from this map renders nowhere at all, silently, so every tag in the
   // spec needs a line here.
+  inbox: { title: 'Coach inbox', side: 'Notes, brief, check-in, sleep' },
   coach: { title: 'AI Coach', side: 'Plans, reviews, debriefs' },
   admin: { title: 'Admin', side: 'Users, invites, audit log, Coach' }
 }
